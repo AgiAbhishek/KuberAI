@@ -1,13 +1,20 @@
 
 from typing import Union, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import json
 import re
 import uuid
 from datetime import datetime
 
-app = FastAPI()
+app = FastAPI(title="Gold Investment Chatbot", description="Professional AI-powered gold investment assistant")
+
+# Mount static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 # In-memory database for demonstration
 users_db = {}
@@ -66,7 +73,11 @@ def generate_gold_investment_response(message: str) -> str:
     else:
         return responses["general"]
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
+async def get_chat_interface(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/api")
 def read_root():
     return {"message": "Gold Investment Chatbot API", "endpoints": ["/chat", "/purchase", "/users"]}
 
