@@ -69,7 +69,7 @@ Return only 'FALSE' if the message is about other topics.
 Respond with only TRUE or FALSE."""
 
         response = groq_client.chat.completions.create(
-            model="llama-3.1-70b-versatile",  # Updated to working model
+            model="llama3-8b-8192",  # Updated to working model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message}
@@ -92,10 +92,11 @@ Respond with only TRUE or FALSE."""
         message_lower = message.lower()
         return any(keyword in message_lower for keyword in gold_keywords)
 
-def generate_ai_response(message: str) -> str:
+def generate_ai_response(message: str, is_gold_related: bool = True) -> str:
     """Generate intelligent responses using Groq AI"""
     try:
-        system_prompt = f"""You are Kuber AI, a professional gold investment assistant for the Indian market. You provide factual information about gold and digital gold investment.
+        if is_gold_related:
+            system_prompt = f"""You are Kuber AI, a professional gold investment assistant for the Indian market. You provide factual information about gold and digital gold investment.
 
 Current gold price: ₹{gold_price_per_gram_inr:.2f}/gram (${gold_price_per_gram_usd}/gram)
 
@@ -115,9 +116,19 @@ Examples:
 Always end with: "Would you like to explore purchasing digital gold today?"
 
 Answer the user's question specifically, don't give generic responses."""
+        else:
+            system_prompt = """You are Kuber AI, a helpful and knowledgeable assistant. You can answer questions on various topics while being friendly and informative. 
+
+Guidelines:
+1. Answer the user's question directly and helpfully
+2. Be concise and informative
+3. Be friendly and professional
+4. If the conversation naturally relates to investments or finance, you can mention your specialty in gold investment
+
+Do not force gold investment topics if the user is asking about something completely unrelated."""
 
         response = groq_client.chat.completions.create(
-            model="llama-3.1-70b-versatile",  # Updated to working model
+            model="llama3-8b-8192",  # Updated to working model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message}
@@ -131,13 +142,16 @@ Answer the user's question specifically, don't give generic responses."""
     
     except Exception as e:
         print(f"Groq API error: {e}")
-        # Improved fallback response based on common queries
-        if any(word in message.lower() for word in ['price', 'cost', 'rate']):
-            return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Gold prices fluctuate based on global market conditions and demand. Would you like to explore purchasing digital gold today?"
-        elif any(word in message.lower() for word in ['benefit', 'advantage', 'why']):
-            return f"Gold serves as a hedge against inflation and provides portfolio diversification. Digital gold offers the convenience of buying small quantities without storage concerns. Would you like to explore purchasing digital gold today?"
+        if is_gold_related:
+            # Improved fallback response based on common queries
+            if any(word in message.lower() for word in ['price', 'cost', 'rate']):
+                return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Gold prices fluctuate based on global market conditions and demand. Would you like to explore purchasing digital gold today?"
+            elif any(word in message.lower() for word in ['benefit', 'advantage', 'why']):
+                return f"Gold serves as a hedge against inflation and provides portfolio diversification. Digital gold offers the convenience of buying small quantities without storage concerns. Would you like to explore purchasing digital gold today?"
+            else:
+                return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Digital gold allows you to invest in gold electronically with the convenience of instant transactions. Would you like to explore purchasing digital gold today?"
         else:
-            return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Digital gold allows you to invest in gold electronically with the convenience of instant transactions. Would you like to explore purchasing digital gold today?"
+            return "I'm Kuber AI, and I'm happy to help you with that question! While I specialize in gold investment advice, I'm here to assist you with various topics. Is there anything specific you'd like to know?"
 
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_interface(request: Request):
@@ -155,22 +169,15 @@ def chat_with_bot(request: ChatRequest):
     # Check if message is gold-related using AI
     is_gold_related = is_gold_investment_query(request.message)
     
-    if is_gold_related:
-        response = generate_ai_response(request.message)
-        
-        return ChatResponse(
-            response=response,
-            is_gold_related=True,
-            user_id=user_id,
-            purchase_encouraged=True
-        )
-    else:
-        return ChatResponse(
-            response="I'm Kuber AI, your specialized gold investment assistant. I'm here to help you with gold investment strategies, market insights, and digital gold purchases. Please ask me about gold-related topics!",
-            is_gold_related=False,
-            user_id=user_id,
-            purchase_encouraged=False
-        )
+    # Generate AI response for both gold-related and general queries
+    response = generate_ai_response(request.message, is_gold_related)
+    
+    return ChatResponse(
+        response=response,
+        is_gold_related=is_gold_related,
+        user_id=user_id,
+        purchase_encouraged=is_gold_related
+    )
 
 @app.post("/purchase", response_model=PurchaseResponse)
 def purchase_gold(request: PurchaseRequest):
