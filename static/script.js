@@ -1,36 +1,61 @@
 
-class GoldChatBot {
+class KuberAI {
     constructor() {
         this.userId = this.generateUserId();
         this.goldPrice = 65.50;
+        this.currentSection = 'chat';
         this.initializeElements();
         this.bindEvents();
         this.updateGoldPrice();
+        this.updateAnalytics();
+        this.setupNavigation();
     }
 
     generateUserId() {
-        return 'user_' + Math.random().toString(36).substr(2, 9);
+        return 'kuber_' + Math.random().toString(36).substr(2, 9);
     }
 
     initializeElements() {
+        // Chat elements
         this.chatMessages = document.getElementById('chatMessages');
         this.messageInput = document.getElementById('messageInput');
         this.sendButton = document.getElementById('sendButton');
         this.quickButtons = document.querySelectorAll('.quick-btn');
+        
+        // Modal elements
         this.purchaseModal = document.getElementById('purchaseModal');
         this.successModal = document.getElementById('successModal');
         this.purchaseForm = document.getElementById('purchaseForm');
         this.amountInput = document.getElementById('amount');
         this.goldAmountSpan = document.getElementById('goldAmount');
-        this.currentPriceSpan = document.getElementById('current-price');
+        
+        // Price elements
+        this.sidebarGoldPrice = document.getElementById('sidebarGoldPrice');
+        
+        // Navigation elements
+        this.navItems = document.querySelectorAll('.nav-item');
+        this.contentSections = document.querySelectorAll('.content-section');
+        this.sectionTitle = document.getElementById('sectionTitle');
+        this.sectionSubtitle = document.getElementById('sectionSubtitle');
+        
+        // Analytics elements
+        this.totalUsers = document.getElementById('totalUsers');
+        this.totalTransactions = document.getElementById('totalTransactions');
+        this.totalGoldSold = document.getElementById('totalGoldSold');
+        this.totalRevenue = document.getElementById('totalRevenue');
     }
 
     bindEvents() {
+        // Chat events
         this.sendButton.addEventListener('click', () => this.sendMessage());
         this.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
         });
 
+        // Quick action buttons
         this.quickButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const message = btn.getAttribute('data-message');
@@ -66,6 +91,67 @@ class GoldChatBot {
             e.preventDefault();
             this.processPurchase();
         });
+
+        // Navigation events
+        this.navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const section = item.getAttribute('data-section');
+                this.switchSection(section);
+            });
+        });
+    }
+
+    setupNavigation() {
+        const sectionData = {
+            chat: {
+                title: 'AI Assistant',
+                subtitle: 'Get intelligent gold investment advice powered by advanced AI'
+            },
+            analytics: {
+                title: 'Analytics Dashboard',
+                subtitle: 'Track your investment performance and platform metrics'
+            },
+            portfolio: {
+                title: 'Portfolio Management',
+                subtitle: 'Monitor your gold holdings and investment performance'
+            },
+            market: {
+                title: 'Market Intelligence',
+                subtitle: 'Real-time gold market data and insights'
+            }
+        };
+
+        this.sectionData = sectionData;
+    }
+
+    switchSection(sectionName) {
+        // Update navigation
+        this.navItems.forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('data-section') === sectionName) {
+                item.classList.add('active');
+            }
+        });
+
+        // Update content sections
+        this.contentSections.forEach(section => {
+            section.classList.remove('active');
+            if (section.id === `${sectionName}-section`) {
+                section.classList.add('active');
+            }
+        });
+
+        // Update header
+        const data = this.sectionData[sectionName];
+        this.sectionTitle.textContent = data.title;
+        this.sectionSubtitle.textContent = data.subtitle;
+
+        this.currentSection = sectionName;
+
+        // Load section-specific data
+        if (sectionName === 'analytics') {
+            this.updateAnalytics();
+        }
     }
 
     async updateGoldPrice() {
@@ -73,16 +159,32 @@ class GoldChatBot {
             const response = await fetch('/gold-price');
             const data = await response.json();
             this.goldPrice = data.price_per_gram_usd;
-            this.currentPriceSpan.textContent = `Gold: $${this.goldPrice.toFixed(2)}/g`;
+            this.sidebarGoldPrice.textContent = `$${this.goldPrice.toFixed(2)}/g`;
         } catch (error) {
             console.error('Error fetching gold price:', error);
+        }
+    }
+
+    async updateAnalytics() {
+        try {
+            const response = await fetch('/analytics');
+            const data = await response.json();
+            
+            if (this.totalUsers) this.totalUsers.textContent = data.total_users;
+            if (this.totalTransactions) this.totalTransactions.textContent = data.total_transactions;
+            if (this.totalGoldSold) this.totalGoldSold.textContent = `${data.total_gold_sold_grams}g`;
+            if (this.totalRevenue) this.totalRevenue.textContent = `$${data.total_revenue_usd.toFixed(2)}`;
+        } catch (error) {
+            console.error('Error fetching analytics:', error);
         }
     }
 
     updateGoldCalculation() {
         const amount = parseFloat(this.amountInput.value) || 0;
         const goldGrams = amount / this.goldPrice;
-        this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams`;
+        if (this.goldAmountSpan) {
+            this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams`;
+        }
     }
 
     async sendMessage() {
@@ -111,7 +213,7 @@ class GoldChatBot {
 
         } catch (error) {
             this.hideTypingIndicator();
-            this.addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+            this.addMessage('I apologize, but I encountered a technical issue. Please try again in a moment.', 'bot');
             console.error('Error:', error);
         }
     }
@@ -120,25 +222,40 @@ class GoldChatBot {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}-message`;
 
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'message-avatar';
+        avatarDiv.innerHTML = sender === 'bot' ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
+
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.innerHTML = `<p>${text}</p>`;
 
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'message-time';
-        timeDiv.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'message-header';
+        headerDiv.innerHTML = `
+            <span class="sender-name">${sender === 'bot' ? 'Kuber AI' : 'You'}</span>
+            <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        `;
 
+        const textP = document.createElement('p');
+        textP.innerHTML = text.replace(/\n/g, '<br>');
+
+        contentDiv.appendChild(headerDiv);
+        contentDiv.appendChild(textP);
+
+        messageDiv.appendChild(avatarDiv);
         messageDiv.appendChild(contentDiv);
-        messageDiv.appendChild(timeDiv);
 
         if (showPurchaseButton && sender === 'bot') {
             const purchaseDiv = document.createElement('div');
             purchaseDiv.className = 'purchase-suggestion';
             purchaseDiv.innerHTML = `
-                <p>💰 Ready to invest in digital gold?</p>
-                <button onclick="chatBot.showPurchaseModal()">Start Purchase</button>
+                <p>🏆 Ready to build your golden portfolio with Kuber AI?</p>
+                <button onclick="kuberAI.showPurchaseModal()">
+                    <i class="fas fa-coins"></i>
+                    Start Investment
+                </button>
             `;
-            messageDiv.appendChild(purchaseDiv);
+            contentDiv.appendChild(purchaseDiv);
         }
 
         this.chatMessages.appendChild(messageDiv);
@@ -149,13 +266,24 @@ class GoldChatBot {
         const typingDiv = document.createElement('div');
         typingDiv.className = 'message bot-message typing-indicator';
         typingDiv.id = 'typing-indicator';
-        typingDiv.innerHTML = `
+        
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'message-avatar';
+        avatarDiv.innerHTML = '<i class="fas fa-robot"></i>';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.innerHTML = `
             <div class="typing-dots">
                 <span></span>
                 <span></span>
                 <span></span>
             </div>
         `;
+        
+        typingDiv.appendChild(avatarDiv);
+        typingDiv.appendChild(contentDiv);
+        
         this.chatMessages.appendChild(typingDiv);
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
@@ -195,14 +323,15 @@ class GoldChatBot {
             if (result.success) {
                 this.purchaseModal.style.display = 'none';
                 this.showSuccessModal(result);
-                this.addMessage(`🎉 Purchase completed! Transaction ID: ${result.transaction_id}. You now own ${result.gold_grams} grams of digital gold!`, 'bot');
+                this.addMessage(`🎉 ${result.message}`, 'bot');
+                this.updateAnalytics(); // Refresh analytics after purchase
             } else {
-                alert('Purchase failed. Please try again.');
+                alert('Investment processing failed. Please verify your details and try again.');
             }
 
         } catch (error) {
             console.error('Purchase error:', error);
-            alert('Purchase failed. Please check your details and try again.');
+            alert('Investment processing failed. Please check your connection and try again.');
         }
     }
 
@@ -211,14 +340,26 @@ class GoldChatBot {
         successDetails.innerHTML = `
             <div class="calc-row"><strong>Transaction ID:</strong> <span>${result.transaction_id}</span></div>
             <div class="calc-row"><strong>Gold Purchased:</strong> <span>${result.gold_grams} grams</span></div>
-            <div class="calc-row"><strong>Total Paid:</strong> <span>$${result.total_cost.toFixed(2)}</span></div>
+            <div class="calc-row"><strong>Total Investment:</strong> <span>$${result.total_cost.toFixed(2)}</span></div>
             <div class="calc-row"><strong>Price per gram:</strong> <span>$${this.goldPrice.toFixed(2)}</span></div>
         `;
         this.successModal.style.display = 'block';
     }
 }
 
-// Initialize the chatbot when the page loads
+// Initialize Kuber AI when the page loads
 document.addEventListener('DOMContentLoaded', function() {
-    window.chatBot = new GoldChatBot();
+    window.kuberAI = new KuberAI();
+    
+    // Auto-refresh analytics every 30 seconds
+    setInterval(() => {
+        if (window.kuberAI.currentSection === 'analytics') {
+            window.kuberAI.updateAnalytics();
+        }
+        window.kuberAI.updateGoldPrice();
+    }, 30000);
 });
+
+// Add some helpful global functions
+window.switchToChat = () => window.kuberAI.switchSection('chat');
+window.showPurchaseModal = () => window.kuberAI.showPurchaseModal();

@@ -4,93 +4,261 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gold Investment Chatbot</title>
+    <title>Kuber AI - Gold Investment Assistant</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <div class="logo">
-                <img src="/static/gold-icon.png" alt="Gold Icon" class="logo-icon">
-                <h1>Gold Investment Assistant</h1>
-            </div>
-            <div class="gold-price">
-                <span id="current-price">Gold: $65.50/g</span>
-            </div>
-        </header>
-
-        <div class="chat-container">
-            <div class="chat-messages" id="chatMessages">
-                <div class="message bot-message">
-                    <div class="message-content">
-                        <p>👋 Welcome to Gold Investment Assistant! I'm here to help you with gold investment advice and digital gold purchases. How can I assist you today?</p>
-                    </div>
-                    <div class="message-time">Just now</div>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo-section">
+                <div class="logo">
+                    <i class="fas fa-crown"></i>
+                    <h1>Kuber AI</h1>
                 </div>
+                <p class="tagline">Gold Investment Intelligence</p>
             </div>
-
-            <div class="chat-input-container">
-                <div class="input-wrapper">
-                    <input type="text" id="messageInput" placeholder="Ask me about gold investment..." maxlength="500">
-                    <button id="sendButton" class="send-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <path d="M2 12L22 2L18 22L11 13L2 12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
+            
+            <nav class="nav-menu">
+                <div class="nav-item active" data-section="chat">
+                    <i class="fas fa-comments"></i>
+                    <span>AI Assistant</span>
                 </div>
-                <div class="quick-actions">
-                    <button class="quick-btn" data-message="What is the current gold price?">💰 Gold Price</button>
-                    <button class="quick-btn" data-message="Should I invest in gold?">📈 Investment Advice</button>
-                    <button class="quick-btn" data-message="How do I buy digital gold?">🛒 Buy Gold</button>
+                <div class="nav-item" data-section="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
                 </div>
+                <div class="nav-item" data-section="portfolio">
+                    <i class="fas fa-briefcase"></i>
+                    <span>Portfolio</span>
+                </div>
+                <div class="nav-item" data-section="market">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Market Data</span>
+                </div>
+            </nav>
+            
+            <div class="gold-price-widget">
+                <div class="price-header">
+                    <i class="fas fa-coins"></i>
+                    <span>Live Gold Price</span>
+                </div>
+                <div class="price-value" id="sidebarGoldPrice">$65.50/g</div>
+                <div class="price-change positive">+0.5%</div>
             </div>
         </div>
 
-        <!-- Purchase Modal -->
-        <div id="purchaseModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Purchase Digital Gold</h2>
-                    <span class="close">&times;</span>
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <h2 id="sectionTitle">AI Assistant</h2>
+                    <p id="sectionSubtitle">Get intelligent gold investment advice</p>
                 </div>
-                <form id="purchaseForm" class="purchase-form">
-                    <div class="form-group">
-                        <label for="userName">Full Name</label>
-                        <input type="text" id="userName" name="userName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="userEmail">Email Address</label>
-                        <input type="email" id="userEmail" name="userEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="amount">Investment Amount (USD)</label>
-                        <input type="number" id="amount" name="amount" min="10" step="0.01" required>
-                        <small>Minimum investment: $10</small>
-                    </div>
-                    <div class="gold-calculation">
-                        <div class="calc-row">
-                            <span>Gold Amount:</span>
-                            <span id="goldAmount">0 grams</span>
+                <div class="header-right">
+                    <div class="market-stats">
+                        <div class="stat">
+                            <span class="stat-label">24h Volume</span>
+                            <span class="stat-value">$2.4M</span>
                         </div>
-                        <div class="calc-row">
-                            <span>Price per gram:</span>
-                            <span>$65.50</span>
+                        <div class="stat">
+                            <span class="stat-label">Market Cap</span>
+                            <span class="stat-value">$12.8T</span>
                         </div>
                     </div>
-                    <button type="submit" class="purchase-btn">Complete Purchase</button>
-                </form>
+                </div>
+            </header>
+
+            <!-- Chat Section -->
+            <div id="chat-section" class="content-section active">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message bot-message">
+                            <div class="message-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <span class="sender-name">Kuber AI</span>
+                                    <span class="message-time">Just now</span>
+                                </div>
+                                <p>👑 Welcome to Kuber AI! I'm your personal gold investment intelligence assistant. I'm powered by advanced AI to provide you with expert insights, market analysis, and seamless digital gold investment opportunities. How can I help you build your golden portfolio today?</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <div class="quick-actions">
+                            <button class="quick-btn" data-message="What's the current gold market outlook?">
+                                <i class="fas fa-chart-line"></i>
+                                Market Outlook
+                            </button>
+                            <button class="quick-btn" data-message="Should I invest in gold right now?">
+                                <i class="fas fa-lightbulb"></i>
+                                Investment Advice
+                            </button>
+                            <button class="quick-btn" data-message="How do I start buying digital gold?">
+                                <i class="fas fa-shopping-cart"></i>
+                                Buy Gold
+                            </button>
+                            <button class="quick-btn" data-message="What are the benefits of gold investment?">
+                                <i class="fas fa-shield-alt"></i>
+                                Benefits
+                            </button>
+                        </div>
+                        
+                        <div class="input-wrapper">
+                            <div class="input-container">
+                                <input type="text" id="messageInput" placeholder="Ask Kuber AI about gold investment..." maxlength="500">
+                                <button id="sendButton" class="send-btn">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Section -->
+            <div id="analytics-section" class="content-section">
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3>Total Users</h3>
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="card-value" id="totalUsers">0</div>
+                        <div class="card-change positive">+12% this month</div>
+                    </div>
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3>Transactions</h3>
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                        <div class="card-value" id="totalTransactions">0</div>
+                        <div class="card-change positive">+8% this week</div>
+                    </div>
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3>Gold Sold</h3>
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="card-value" id="totalGoldSold">0g</div>
+                        <div class="card-change positive">+15% this month</div>
+                    </div>
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3>Revenue</h3>
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="card-value" id="totalRevenue">$0</div>
+                        <div class="card-change positive">+22% this month</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio Section -->
+            <div id="portfolio-section" class="content-section">
+                <div class="portfolio-container">
+                    <div class="portfolio-header">
+                        <h3>Your Gold Holdings</h3>
+                        <button class="add-investment-btn">
+                            <i class="fas fa-plus"></i>
+                            Add Investment
+                        </button>
+                    </div>
+                    <div id="portfolioList" class="portfolio-list">
+                        <div class="empty-portfolio">
+                            <i class="fas fa-chart-pie"></i>
+                            <p>No investments yet. Start building your gold portfolio!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Section -->
+            <div id="market-section" class="content-section">
+                <div class="market-data">
+                    <div class="market-card">
+                        <h3>Gold Price Trends</h3>
+                        <div class="trend-info">
+                            <div class="current-price">$65.50/gram</div>
+                            <div class="price-change positive">+0.75 (+1.16%)</div>
+                        </div>
+                    </div>
+                    <div class="market-insights">
+                        <h3>Market Insights</h3>
+                        <ul>
+                            <li>Gold showing strong momentum amid economic uncertainty</li>
+                            <li>Digital gold adoption increasing by 25% monthly</li>
+                            <li>Central bank purchases supporting price levels</li>
+                            <li>Inflation hedge demand remains robust</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
+    </div>
 
-        <!-- Success Modal -->
-        <div id="successModal" class="modal">
-            <div class="modal-content success">
-                <div class="success-icon">✅</div>
-                <h2>Purchase Successful!</h2>
-                <div id="successDetails"></div>
-                <button id="closeSuccess" class="purchase-btn">Close</button>
+    <!-- Purchase Modal -->
+    <div id="purchaseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-coins"></i> Purchase Digital Gold</h2>
+                <span class="close">&times;</span>
             </div>
+            <form id="purchaseForm" class="purchase-form">
+                <div class="form-group">
+                    <label for="userName"><i class="fas fa-user"></i> Full Name</label>
+                    <input type="text" id="userName" name="userName" required>
+                </div>
+                <div class="form-group">
+                    <label for="userEmail"><i class="fas fa-envelope"></i> Email Address</label>
+                    <input type="email" id="userEmail" name="userEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount"><i class="fas fa-dollar-sign"></i> Investment Amount (USD)</label>
+                    <input type="number" id="amount" name="amount" min="10" step="0.01" required>
+                    <small>Minimum investment: $10</small>
+                </div>
+                <div class="gold-calculation">
+                    <div class="calc-row">
+                        <span>Gold Amount:</span>
+                        <span id="goldAmount">0 grams</span>
+                    </div>
+                    <div class="calc-row">
+                        <span>Price per gram:</span>
+                        <span>$65.50</span>
+                    </div>
+                    <div class="calc-row">
+                        <span>Transaction Fee:</span>
+                        <span>$0.00</span>
+                    </div>
+                </div>
+                <button type="submit" class="purchase-btn">
+                    <i class="fas fa-check-circle"></i>
+                    Complete Purchase
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content success">
+            <div class="success-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h2>Investment Successful!</h2>
+            <p>Your gold investment has been processed by Kuber AI</p>
+            <div id="successDetails"></div>
+            <button id="closeSuccess" class="purchase-btn">
+                <i class="fas fa-times"></i>
+                Close
+            </button>
         </div>
     </div>
 
