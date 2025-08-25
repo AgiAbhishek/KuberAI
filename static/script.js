@@ -177,7 +177,10 @@ class KuberAI {
             if (this.totalUsers) this.totalUsers.textContent = data.total_users;
             if (this.totalTransactions) this.totalTransactions.textContent = data.total_transactions;
             if (this.totalGoldSold) this.totalGoldSold.textContent = `${data.total_gold_sold_grams}g`;
-            if (this.totalRevenue) this.totalRevenue.textContent = `$${data.total_revenue_usd.toFixed(2)}`;
+            
+            // Convert USD to INR for revenue display
+            const revenueINR = data.total_revenue_usd * this.usdToInr;
+            if (this.totalRevenue) this.totalRevenue.textContent = `₹${revenueINR.toLocaleString('en-IN', {maximumFractionDigits: 2})}`;
         } catch (error) {
             console.error('Error fetching analytics:', error);
         }
@@ -342,11 +345,12 @@ class KuberAI {
 
     showSuccessModal(result) {
         const successDetails = document.getElementById('successDetails');
+        const totalCostINR = result.total_cost * this.usdToInr;
         successDetails.innerHTML = `
             <div class="calc-row"><strong>Transaction ID:</strong> <span>${result.transaction_id}</span></div>
             <div class="calc-row"><strong>Gold Purchased:</strong> <span>${result.gold_grams} grams</span></div>
-            <div class="calc-row"><strong>Total Investment:</strong> <span>$${result.total_cost.toFixed(2)}</span></div>
-            <div class="calc-row"><strong>Price per gram:</strong> <span>$${this.goldPrice.toFixed(2)}</span></div>
+            <div class="calc-row"><strong>Total Investment:</strong> <span>₹${totalCostINR.toLocaleString('en-IN', {maximumFractionDigits: 2})}</span></div>
+            <div class="calc-row"><strong>Price per gram:</strong> <span>₹${this.goldPriceINR.toFixed(2)}</span></div>
         `;
         this.successModal.style.display = 'block';
     }

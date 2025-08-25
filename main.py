@@ -252,14 +252,16 @@ def get_analytics():
     total_users = len(users_db)
     total_transactions = sum(1 for user in users_db.values() if user.get("status") == "completed")
     total_gold_sold = sum(user.get("gold_grams", 0) for user in users_db.values())
-    total_revenue = sum(user.get("amount_paid", 0) for user in users_db.values())
+    total_revenue_usd = sum(user.get("amount_paid_usd", 0) for user in users_db.values())
+    total_revenue_inr = sum(user.get("amount_paid_inr", 0) for user in users_db.values())
     
     return {
         "total_users": total_users,
         "total_transactions": total_transactions,
         "total_gold_sold_grams": round(total_gold_sold, 4),
-        "total_revenue_usd": round(total_revenue, 2),
-        "average_transaction_size": round(total_revenue / max(total_transactions, 1), 2)
+        "total_revenue_usd": round(total_revenue_usd, 2),
+        "total_revenue_inr": round(total_revenue_inr, 2),
+        "average_transaction_size": round(total_revenue_usd / max(total_transactions, 1), 2)
     }
 
 # Test endpoints
