@@ -2,7 +2,9 @@
 class KuberAI {
     constructor() {
         this.userId = this.generateUserId();
-        this.goldPrice = 65.50;
+        this.goldPriceINR = 5469.25; // Will be updated from API
+        this.goldPriceUSD = 65.50;
+        this.usdToInr = 83.50;
         this.currentSection = 'chat';
         this.initializeElements();
         this.bindEvents();
@@ -158,8 +160,10 @@ class KuberAI {
         try {
             const response = await fetch('/gold-price');
             const data = await response.json();
-            this.goldPrice = data.price_per_gram_usd;
-            this.sidebarGoldPrice.textContent = `$${this.goldPrice.toFixed(2)}/g`;
+            this.goldPriceINR = data.price_per_gram_inr;
+            this.goldPriceUSD = data.price_per_gram_usd;
+            this.usdToInr = data.usd_to_inr_rate;
+            this.sidebarGoldPrice.textContent = `₹${this.goldPriceINR.toFixed(2)}/g`;
         } catch (error) {
             console.error('Error fetching gold price:', error);
         }
@@ -180,10 +184,11 @@ class KuberAI {
     }
 
     updateGoldCalculation() {
-        const amount = parseFloat(this.amountInput.value) || 0;
-        const goldGrams = amount / this.goldPrice;
+        const amountUSD = parseFloat(this.amountInput.value) || 0;
+        const amountINR = amountUSD * this.usdToInr;
+        const goldGrams = amountINR / this.goldPriceINR;
         if (this.goldAmountSpan) {
-            this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams`;
+            this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
         }
     }
 

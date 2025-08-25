@@ -23,7 +23,9 @@ templates = Jinja2Templates(directory="templates")
 
 # In-memory database for demonstration
 users_db = {}
-gold_price_per_gram = 65.50  # Hardcoded gold price in USD
+gold_price_per_gram_usd = 65.50  # Hardcoded gold price in USD
+usd_to_inr = 83.50  # Current USD to INR conversion rate
+gold_price_per_gram_inr = gold_price_per_gram_usd * usd_to_inr  # Gold price in INR
 
 # Request/Response models
 class ChatRequest(BaseModel):
@@ -67,7 +69,7 @@ Return only 'FALSE' if the message is about other topics.
 Respond with only TRUE or FALSE."""
 
         response = groq_client.chat.completions.create(
-            model="mixtral-8x7b-32768",
+            model="llama-3.1-70b-versatile",  # Updated to working model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message}
@@ -85,7 +87,7 @@ Respond with only TRUE or FALSE."""
         gold_keywords = [
             'gold', 'investment', 'precious metal', 'bullion', 'gold price',
             'digital gold', 'buy gold', 'gold market', 'gold investment',
-            'investing in gold', 'gold portfolio', 'gold trading'
+            'investing in gold', 'gold portfolio', 'gold trading', 'sona'
         ]
         message_lower = message.lower()
         return any(keyword in message_lower for keyword in gold_keywords)
@@ -93,41 +95,49 @@ Respond with only TRUE or FALSE."""
 def generate_ai_response(message: str) -> str:
     """Generate intelligent responses using Groq AI"""
     try:
-        system_prompt = f"""You are Kuber AI, a professional gold investment assistant. You are knowledgeable about gold markets, investment strategies, and digital gold platforms.
+        system_prompt = f"""You are Kuber AI, a professional gold investment assistant for the Indian market. You provide factual information about gold and digital gold investment.
 
-Current gold price: ${gold_price_per_gram}/gram
+Current gold price: ₹{gold_price_per_gram_inr:.2f}/gram (${gold_price_per_gram_usd}/gram)
 
 Guidelines:
-- Provide accurate, helpful information about gold investment
-- Be professional and encouraging about gold investment opportunities
-- Always mention that digital gold is available for purchase
-- Keep responses concise but informative
-- Include relevant market insights when appropriate
-- End responses with a subtle encouragement to invest
+1. Answer the user's specific question about gold investment factually
+2. Be concise and informative (2-3 sentences max)
+3. Use Indian Rupees (₹) for pricing
+4. Provide relevant market insights when asked
+5. DO NOT give investment advice, only factual information
+6. End with a gentle invitation to purchase digital gold
 
-If asked about current prices, use the provided gold price above."""
+Examples:
+- If asked about prices: "Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram..."
+- If asked about benefits: "Gold historically serves as a hedge against inflation and currency devaluation..."
+- If asked about digital gold: "Digital gold allows you to buy, sell and store gold electronically..."
+
+Always end with: "Would you like to explore purchasing digital gold today?"
+
+Answer the user's question specifically, don't give generic responses."""
 
         response = groq_client.chat.completions.create(
-            model="mixtral-8x7b-32768",
+            model="llama-3.1-70b-versatile",  # Updated to working model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message}
             ],
-            temperature=0.7,
-            max_tokens=300
+            temperature=0.3,
+            max_tokens=200
         )
         
         ai_response = response.choices[0].message.content.strip()
-        
-        # Add purchase encouragement
-        ai_response += "\n\n💰 Ready to start your gold investment journey? Our platform offers secure digital gold purchases with instant transactions!"
-        
         return ai_response
     
     except Exception as e:
         print(f"Groq API error: {e}")
-        # Fallback response
-        return f"I'm here to help with your gold investment questions! Current gold price is ${gold_price_per_gram} per gram. Digital gold investment is a great way to diversify your portfolio. Would you like to make a purchase today?"
+        # Improved fallback response based on common queries
+        if any(word in message.lower() for word in ['price', 'cost', 'rate']):
+            return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Gold prices fluctuate based on global market conditions and demand. Would you like to explore purchasing digital gold today?"
+        elif any(word in message.lower() for word in ['benefit', 'advantage', 'why']):
+            return f"Gold serves as a hedge against inflation and provides portfolio diversification. Digital gold offers the convenience of buying small quantities without storage concerns. Would you like to explore purchasing digital gold today?"
+        else:
+            return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Digital gold allows you to invest in gold electronically with the convenience of instant transactions. Would you like to explore purchasing digital gold today?"
 
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_interface(request: Request):
@@ -165,15 +175,18 @@ def chat_with_bot(request: ChatRequest):
 @app.post("/purchase", response_model=PurchaseResponse)
 def purchase_gold(request: PurchaseRequest):
     try:
+        # Convert USD to INR for validation
+        amount_inr = request.amount_usd * usd_to_inr
+        
         # Validate input
         if request.amount_usd <= 0:
             raise HTTPException(status_code=400, detail="Amount must be greater than 0")
         
-        if request.amount_usd < 10:
-            raise HTTPException(status_code=400, detail="Minimum purchase amount is $10")
+        if amount_inr < 830:  # Minimum ₹830 (equivalent to $10)
+            raise HTTPException(status_code=400, detail="Minimum purchase amount is ₹830")
         
-        # Calculate gold amount
-        gold_grams = request.amount_usd / gold_price_per_gram
+        # Calculate gold amount using INR pricing
+        gold_grams = amount_inr / gold_price_per_gram_inr
         
         # Generate transaction ID
         transaction_id = f"KUBER-{uuid.uuid4().hex[:8].upper()}"
@@ -185,8 +198,9 @@ def purchase_gold(request: PurchaseRequest):
             "email": request.email,
             "transaction_id": transaction_id,
             "gold_grams": round(gold_grams, 4),
-            "amount_paid": request.amount_usd,
-            "gold_price_per_gram": gold_price_per_gram,
+            "amount_paid_usd": request.amount_usd,
+            "amount_paid_inr": round(amount_inr, 2),
+            "gold_price_per_gram_inr": round(gold_price_per_gram_inr, 2),
             "purchase_date": datetime.now().isoformat(),
             "status": "completed"
         }
@@ -199,7 +213,7 @@ def purchase_gold(request: PurchaseRequest):
             transaction_id=transaction_id,
             gold_grams=round(gold_grams, 4),
             total_cost=request.amount_usd,
-            message=f"🎉 Congratulations! Kuber AI has successfully processed your purchase of {round(gold_grams, 4)} grams of digital gold for ${request.amount_usd}. Transaction ID: {transaction_id}"
+            message=f"🎉 Congratulations! Kuber AI has successfully processed your purchase of {round(gold_grams, 4)} grams of digital gold for ₹{amount_inr:.2f}. Transaction ID: {transaction_id}"
         )
         
     except Exception as e:
@@ -219,9 +233,11 @@ def get_all_users():
 @app.get("/gold-price")
 def get_gold_price():
     return {
-        "price_per_gram_usd": gold_price_per_gram,
+        "price_per_gram_inr": round(gold_price_per_gram_inr, 2),
+        "price_per_gram_usd": gold_price_per_gram_usd,
+        "usd_to_inr_rate": usd_to_inr,
         "last_updated": datetime.now().isoformat(),
-        "currency": "USD"
+        "primary_currency": "INR"
     }
 
 @app.get("/analytics")
