@@ -52,24 +52,27 @@ class PurchaseResponse(BaseModel):
     message: str
 
 def is_gold_investment_query(message: str) -> bool:
-    """Enhanced gold investment detection using Groq AI"""
+    """Enhanced gold investment detection using Groq AI with improved examples"""
     try:
         system_prompt = """You are Kuber AI, a specialized gold investment assistant. Your job is to determine if a user's message is related to gold investment, precious metals, or financial topics related to gold.
 
 Return only 'TRUE' if the message is about:
-- Gold investment, buying, selling, or trading
+- Gold investment, buying, selling, or trading: "Should I invest in gold?", "Is digital gold safe?", "Buy gold now", "How to purchase digital gold?", "Gold price today?"
 - Gold prices, market trends, or analysis
 - Digital gold, gold ETFs, or gold-backed investments
 - Precious metals investment advice
 - Gold portfolio management
 - Economic factors affecting gold
 
-Return only 'FALSE' if the message is about other topics.
+Return only 'FALSE' if the message is about other topics like:
+- "Golden retriever care", "Gold medal stats", "Golden gate bridge", "Gold color paint"
+
+Focus on INVESTMENT and FINANCIAL context. If the word "gold" appears but is not about investment/finance, return FALSE.
 
 Respond with only TRUE or FALSE."""
 
         response = groq_client.chat.completions.create(
-            model="llama3-8b-8192",  # Updated to working model
+            model="llama3-8b-8192",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message}
@@ -83,17 +86,31 @@ Respond with only TRUE or FALSE."""
     
     except Exception as e:
         print(f"Groq API error: {e}")
-        # Fallback to keyword detection
-        gold_keywords = [
-            'gold', 'investment', 'precious metal', 'bullion', 'gold price',
-            'digital gold', 'buy gold', 'gold market', 'gold investment',
-            'investing in gold', 'gold portfolio', 'gold trading', 'sona'
+        # Enhanced fallback with negative keywords
+        gold_investment_keywords = [
+            'gold investment', 'buy gold', 'sell gold', 'gold price', 'gold market',
+            'digital gold', 'gold trading', 'invest in gold', 'gold portfolio',
+            'precious metal investment', 'gold bullion', 'gold etf', 'sona investment'
         ]
+        
+        # Keywords that should NOT trigger gold investment intent
+        negative_keywords = [
+            'golden retriever', 'gold medal', 'golden gate', 'gold color',
+            'gold paint', 'gold jewelry design', 'gold teeth', 'golden hour',
+            'gold fish', 'golden rule', 'gold standard test'
+        ]
+        
         message_lower = message.lower()
-        return any(keyword in message_lower for keyword in gold_keywords)
+        
+        # Check for negative keywords first
+        if any(neg_keyword in message_lower for neg_keyword in negative_keywords):
+            return False
+            
+        # Then check for positive investment keywords
+        return any(keyword in message_lower for keyword in gold_investment_keywords)
 
 def generate_ai_response(message: str, is_gold_related: bool = True) -> str:
-    """Generate intelligent responses using Groq AI"""
+    """Generate intelligent responses using Groq AI with improved nudge templates"""
     try:
         if is_gold_related:
             system_prompt = f"""You are Kuber AI, a professional gold investment assistant for the Indian market. You provide factual information about gold and digital gold investment.
@@ -106,14 +123,17 @@ Guidelines:
 3. Use Indian Rupees (₹) for pricing
 4. Provide relevant market insights when asked
 5. DO NOT give investment advice, only factual information
-6. End with a gentle invitation to purchase digital gold
+6. End with the specific nudge template
+
+Nudge template to use:
+"If you'd like, I can help you purchase digital gold now and record it to your account."
 
 Examples:
-- If asked about prices: "Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram..."
-- If asked about benefits: "Gold historically serves as a hedge against inflation and currency devaluation..."
-- If asked about digital gold: "Digital gold allows you to buy, sell and store gold electronically..."
+- If asked about prices: "Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Gold prices fluctuate based on global market conditions and economic factors."
+- If asked about benefits: "Gold historically serves as a hedge against inflation and currency devaluation. Digital gold offers the convenience of fractional ownership without storage concerns."
+- If asked about digital gold: "Digital gold allows you to buy, sell and store gold electronically with 24/7 liquidity and no storage costs."
 
-Always end with: "Would you like to explore purchasing digital gold today?"
+Always end with: "If you'd like, I can help you purchase digital gold now and record it to your account."
 
 Answer the user's question specifically, don't give generic responses."""
         else:
@@ -145,11 +165,11 @@ Do not force gold investment topics if the user is asking about something comple
         if is_gold_related:
             # Improved fallback response based on common queries
             if any(word in message.lower() for word in ['price', 'cost', 'rate']):
-                return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Gold prices fluctuate based on global market conditions and demand. Would you like to explore purchasing digital gold today?"
+                return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Gold prices fluctuate based on global market conditions and demand. If you'd like, I can help you purchase digital gold now and record it to your account."
             elif any(word in message.lower() for word in ['benefit', 'advantage', 'why']):
-                return f"Gold serves as a hedge against inflation and provides portfolio diversification. Digital gold offers the convenience of buying small quantities without storage concerns. Would you like to explore purchasing digital gold today?"
+                return f"Gold serves as a hedge against inflation and provides portfolio diversification. Digital gold offers the convenience of buying small quantities without storage concerns. If you'd like, I can help you purchase digital gold now and record it to your account."
             else:
-                return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Digital gold allows you to invest in gold electronically with the convenience of instant transactions. Would you like to explore purchasing digital gold today?"
+                return f"Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Digital gold allows you to invest in gold electronically with the convenience of instant transactions. If you'd like, I can help you purchase digital gold now and record it to your account."
         else:
             return "I'm Kuber AI, and I'm happy to help you with that question! While I specialize in gold investment advice, I'm here to assist you with various topics. Is there anything specific you'd like to know?"
 
@@ -161,10 +181,32 @@ async def get_chat_interface(request: Request):
 def read_root():
     return {"message": "Kuber AI - Gold Investment Assistant", "endpoints": ["/chat", "/purchase", "/users"]}
 
+def detect_purchase_consent(message: str) -> bool:
+    """Detect if user is giving consent to purchase"""
+    consent_keywords = [
+        'yes', 'confirm', 'buy', 'purchase', 'proceed', 'go ahead',
+        'sure', 'okay', 'ok', 'agree', 'start investment', 'lets do it'
+    ]
+    message_lower = message.lower().strip()
+    return any(keyword in message_lower for keyword in consent_keywords)
+
 @app.post("/chat", response_model=ChatResponse)
 def chat_with_bot(request: ChatRequest):
     # Generate user ID if not provided
     user_id = request.user_id or str(uuid.uuid4())
+    
+    # Check if user is giving consent for purchase
+    is_consent = detect_purchase_consent(request.message)
+    
+    if is_consent:
+        # If user gives consent, provide purchase guidance
+        response = "Perfect! I'm ready to help you invest in digital gold. Please click the 'Start Investment' button below to proceed with your purchase. You'll need to provide your name, email, and investment amount."
+        return ChatResponse(
+            response=response,
+            is_gold_related=True,
+            user_id=user_id,
+            purchase_encouraged=True
+        )
     
     # Check if message is gold-related using AI
     is_gold_related = is_gold_investment_query(request.message)
