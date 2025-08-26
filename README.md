@@ -241,7 +241,6 @@ python -c "from main import mongo_client; print('MongoDB connected:', mongo_clie
 
 The application is ready for deployment on various platforms:
 
-- **Replit**: Use the built-in deployment feature
 - **Heroku**: Add `Procfile` with `web: uvicorn main:app --host 0.0.0.0 --port $PORT`
 - **Railway**: Works out of the box
 - **DigitalOcean**: Use App Platform or Droplets
