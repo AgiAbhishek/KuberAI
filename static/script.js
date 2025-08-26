@@ -201,10 +201,11 @@ class KuberAI {
             const gstRate = 0.03; // 3% GST
             const gstAmount = amountINR * gstRate;
             const totalAmount = amountINR + gstAmount;
+            // Calculate gold grams based on the INR amount entered (not total with GST)
             const goldGrams = amountINR / this.goldPriceINR;
             
             if (this.goldAmountSpan) {
-                this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams`;
+                this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
             }
             
             // Update GST and total amount displays
