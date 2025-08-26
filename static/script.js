@@ -187,12 +187,24 @@ class KuberAI {
     }
 
     updateGoldCalculation() {
-        const amountUSD = parseFloat(this.amountInput.value) || 0;
-        const amountINR = amountUSD * this.usdToInr;
+        const amountINR = parseFloat(this.amountInput.value) || 0;
+        const gstRate = 0.03; // 3% GST
+        const gstAmount = amountINR * gstRate;
+        const totalAmount = amountINR + gstAmount;
         const goldGrams = amountINR / this.goldPriceINR;
+        
         if (this.goldAmountSpan) {
-            this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
+            this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams`;
         }
+        
+        // Update GST and total amount displays
+        const gstElement = document.getElementById('gstAmount');
+        const totalElement = document.getElementById('totalAmount');
+        const priceElement = document.getElementById('pricePerGram');
+        
+        if (gstElement) gstElement.textContent = `₹${gstAmount.toFixed(2)}`;
+        if (totalElement) totalElement.textContent = `₹${totalAmount.toFixed(2)}`;
+        if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
     }
 
     async sendMessage() {
@@ -310,11 +322,15 @@ class KuberAI {
 
     async processPurchase() {
         const formData = new FormData(this.purchaseForm);
+        const amountINR = parseFloat(formData.get('amount'));
+        const amountUSD = amountINR / this.usdToInr; // Convert INR to USD for backend compatibility
+        
         const purchaseData = {
             user_id: this.userId,
             user_name: formData.get('userName'),
             email: formData.get('userEmail'),
-            amount_usd: parseFloat(formData.get('amount'))
+            amount_usd: amountUSD,
+            amount_inr: amountINR
         };
 
         try {
@@ -345,11 +361,16 @@ class KuberAI {
 
     showSuccessModal(result) {
         const successDetails = document.getElementById('successDetails');
-        const totalCostINR = result.total_cost * this.usdToInr;
+        const amountINR = parseFloat(document.getElementById('amount').value);
+        const gstAmount = amountINR * 0.03;
+        const totalWithGST = amountINR + gstAmount;
+        
         successDetails.innerHTML = `
             <div class="calc-row"><strong>Transaction ID:</strong> <span>${result.transaction_id}</span></div>
             <div class="calc-row"><strong>Gold Purchased:</strong> <span>${result.gold_grams} grams</span></div>
-            <div class="calc-row"><strong>Total Investment:</strong> <span>₹${totalCostINR.toLocaleString('en-IN', {maximumFractionDigits: 2})}</span></div>
+            <div class="calc-row"><strong>Investment Amount:</strong> <span>₹${amountINR.toLocaleString('en-IN', {maximumFractionDigits: 2})}</span></div>
+            <div class="calc-row"><strong>GST (3%):</strong> <span>₹${gstAmount.toLocaleString('en-IN', {maximumFractionDigits: 2})}</span></div>
+            <div class="calc-row"><strong>Total Paid:</strong> <span>₹${totalWithGST.toLocaleString('en-IN', {maximumFractionDigits: 2})}</span></div>
             <div class="calc-row"><strong>Price per gram:</strong> <span>₹${this.goldPriceINR.toFixed(2)}</span></div>
         `;
         this.successModal.style.display = 'block';

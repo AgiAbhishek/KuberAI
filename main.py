@@ -14,6 +14,10 @@ from groq import Groq
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="Kuber AI - Gold Investment Assistant", description="Professional AI-powered gold investment chatbot")
 
@@ -68,6 +72,7 @@ class ChatResponse(BaseModel):
 class PurchaseRequest(BaseModel):
     user_id: str
     amount_usd: float
+    amount_inr: float = None
     user_name: str
     email: str
 
@@ -254,23 +259,28 @@ def chat_with_bot(request: ChatRequest):
 @app.post("/purchase", response_model=PurchaseResponse)
 def purchase_gold(request: PurchaseRequest):
     try:
-        # Convert USD to INR for validation
-        amount_inr = request.amount_usd * usd_to_inr
+        # Use INR amount if provided, otherwise convert from USD
+        amount_inr = request.amount_inr if request.amount_inr else request.amount_usd * usd_to_inr
+        
+        # Calculate GST (3%)
+        gst_rate = 0.03
+        gst_amount = amount_inr * gst_rate
+        total_amount_with_gst = amount_inr + gst_amount
         
         # Validate input
-        if request.amount_usd <= 0:
+        if amount_inr <= 0:
             raise HTTPException(status_code=400, detail="Amount must be greater than 0")
         
-        if amount_inr < 830:  # Minimum ₹830 (equivalent to $10)
+        if amount_inr < 830:  # Minimum ₹830
             raise HTTPException(status_code=400, detail="Minimum purchase amount is ₹830")
         
-        # Calculate gold amount using INR pricing
+        # Calculate gold amount using INR pricing (before GST)
         gold_grams = amount_inr / gold_price_per_gram_inr
         
         # Generate transaction ID
         transaction_id = f"KUBER-{uuid.uuid4().hex[:8].upper()}"
         
-        # Create user record
+        # Create comprehensive user record
         user_record = {
             "user_id": request.user_id,
             "name": request.user_name,
@@ -279,16 +289,24 @@ def purchase_gold(request: PurchaseRequest):
             "gold_grams": round(gold_grams, 4),
             "amount_paid_usd": request.amount_usd,
             "amount_paid_inr": round(amount_inr, 2),
+            "gst_amount": round(gst_amount, 2),
+            "total_amount_with_gst": round(total_amount_with_gst, 2),
+            "gst_rate": gst_rate,
             "gold_price_per_gram_inr": round(gold_price_per_gram_inr, 2),
             "purchase_date": datetime.now().isoformat(),
-            "status": "completed"
+            "status": "completed",
+            "currency": "INR"
         }
         
-        # Store in MongoDB if available, otherwise use in-memory database
+        # Ensure MongoDB storage with better error handling
+        mongodb_success = False
         try:
-            if users_collection is not None and transactions_collection is not None:
+            if mongo_client is not None and users_collection is not None and transactions_collection is not None:
+                # Test MongoDB connection
+                mongo_client.admin.command('ismaster')
+                
                 # Store user info
-                users_collection.update_one(
+                user_result = users_collection.update_one(
                     {"user_id": request.user_id},
                     {"$set": {
                         "user_id": request.user_id,
@@ -300,26 +318,42 @@ def purchase_gold(request: PurchaseRequest):
                 )
                 
                 # Store transaction
-                transactions_collection.insert_one(user_record)
-                print(f"✅ Transaction {transaction_id} stored in MongoDB")
+                transaction_result = transactions_collection.insert_one(user_record.copy())
+                
+                if transaction_result.inserted_id:
+                    mongodb_success = True
+                    print(f"✅ Transaction {transaction_id} successfully stored in MongoDB")
+                    print(f"✅ User record updated: {user_result.modified_count or user_result.upserted_id}")
+                else:
+                    raise Exception("Failed to insert transaction record")
+                    
             else:
-                # Fallback to in-memory storage
-                users_db[request.user_id] = user_record
-                print(f"⚠️ Transaction {transaction_id} stored in memory (MongoDB not available)")
+                raise Exception("MongoDB client or collections not available")
+                
         except Exception as e:
-            print(f"❌ Database error: {e}")
+            print(f"❌ MongoDB storage failed: {e}")
+            print(f"⚠️ Falling back to in-memory storage for transaction {transaction_id}")
             # Fallback to in-memory storage
             users_db[request.user_id] = user_record
+        
+        # Return success response
+        success_message = f"🎉 Congratulations! Kuber AI has successfully processed your purchase of {round(gold_grams, 4)} grams of digital gold for ₹{amount_inr:.2f} (Total with GST: ₹{total_amount_with_gst:.2f}). Transaction ID: {transaction_id}"
+        
+        if mongodb_success:
+            success_message += " Your transaction has been securely recorded in our database."
         
         return PurchaseResponse(
             success=True,
             transaction_id=transaction_id,
             gold_grams=round(gold_grams, 4),
             total_cost=request.amount_usd,
-            message=f"🎉 Congratulations! Kuber AI has successfully processed your purchase of {round(gold_grams, 4)} grams of digital gold for ₹{amount_inr:.2f}. Transaction ID: {transaction_id}"
+            message=success_message
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Purchase processing error: {e}")
         raise HTTPException(status_code=500, detail=f"Purchase failed: {str(e)}")
 
 @app.get("/users/{user_id}")
