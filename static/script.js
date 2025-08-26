@@ -9,6 +9,13 @@ class KuberAI {
         this.updateGoldPrice();
         this.updateAnalytics();
         this.setupNavigation();
+        
+        // Ensure gold calculation works immediately
+        setTimeout(() => {
+            if (this.amountInput) {
+                this.updateGoldCalculation();
+            }
+        }, 100);
     }
 
     generateUserId() {
@@ -191,6 +198,11 @@ class KuberAI {
         const inputValue = this.amountInput.value.trim();
         const amountINR = parseFloat(inputValue);
         
+        // Ensure goldPriceINR is valid
+        if (!this.goldPriceINR || this.goldPriceINR <= 0) {
+            this.goldPriceINR = 5469.25; // Fallback price
+        }
+        
         // Check if input is valid number
         if (isNaN(amountINR) || amountINR <= 0 || inputValue === '') {
             // Reset displays for invalid input
@@ -210,6 +222,12 @@ class KuberAI {
         const gstAmount = amountINR * gstRate;
         const totalAmount = amountINR + gstAmount;
         const goldGrams = amountINR / this.goldPriceINR;
+        
+        // Ensure calculations are valid numbers
+        if (isNaN(goldGrams) || !isFinite(goldGrams)) {
+            console.error('Invalid gold calculation:', { amountINR, goldPriceINR: this.goldPriceINR, goldGrams });
+            return;
+        }
         
         if (this.goldAmountSpan) {
             this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
