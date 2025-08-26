@@ -552,14 +552,13 @@ body {
 
 .modal-content {
     background: var(--card-bg);
-    margin: 1% auto;
+    margin: 5% auto;
     padding: 0;
     border: 1px solid var(--border-color);
     border-radius: 1rem;
     width: 90%;
     max-width: 500px;
-    max-height: 95vh;
-    overflow-y: auto;
+    max-height: 90vh;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
     animation: modalSlideIn 0.3s ease-out;
     position: relative;
@@ -615,6 +614,7 @@ body {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
+    max-height: calc(90vh - 80px);
 }
 
 .form-group {
@@ -689,7 +689,9 @@ body {
     gap: 0.5rem;
     margin-top: 1.5rem;
     position: sticky;
-    bottom: 0;
+    bottom: -2rem;
+    background: linear-gradient(135deg, var(--primary-gold), var(--dark-gold));
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.3);
     z-index: 10;
 }
 
@@ -826,21 +828,32 @@ body {
     }
 
     .modal-content {
-        width: 98%;
-        margin: 2% auto;
-        max-height: 96vh;
-        min-height: 400px;
+        width: 95%;
+        margin: 5% auto;
+        max-height: 90vh;
+        min-height: 500px;
     }
 
     .purchase-form {
-        padding: 1.5rem;
+        padding: 1rem;
         overflow-y: auto;
-        max-height: calc(96vh - 120px);
+        max-height: calc(90vh - 100px);
+        padding-bottom: 6rem;
     }
 
     .modal-header {
-        padding: 1.5rem;
+        padding: 1rem;
         flex-shrink: 0;
+    }
+
+    .purchase-btn {
+        position: fixed;
+        bottom: 5%;
+        left: 2.5%;
+        right: 2.5%;
+        width: 95%;
+        margin: 0;
+        box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.5);
     }
 
     .modal-content.success {
