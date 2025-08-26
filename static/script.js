@@ -436,6 +436,13 @@ class KuberAI {
             return;
         }
         
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(userEmail.trim())) {
+            alert('Please enter a valid email address');
+            return;
+        }
+        
         if (!amount || isNaN(amountINR) || amountINR <= 0) {
             alert('Please enter a valid investment amount');
             return;
@@ -456,6 +463,7 @@ class KuberAI {
         console.log('Sending purchase data:', purchaseData);
 
         try {
+            console.log('Making purchase request...');
             const response = await fetch('/purchase', {
                 method: 'POST',
                 headers: {
@@ -464,14 +472,27 @@ class KuberAI {
                 body: JSON.stringify(purchaseData)
             });
 
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                console.error('Purchase failed:', errorData);
-                alert(`Investment processing failed: ${errorData.detail || 'Unknown error'}`);
+                let errorMessage = 'Unknown error occurred';
+                try {
+                    const errorData = await response.json();
+                    console.error('Purchase failed with error data:', errorData);
+                    errorMessage = errorData.detail || errorData.message || 'Server error';
+                } catch (parseError) {
+                    console.error('Could not parse error response:', parseError);
+                    const errorText = await response.text();
+                    console.error('Raw error response:', errorText);
+                    errorMessage = `Server error (${response.status})`;
+                }
+                alert(`Investment processing failed: ${errorMessage}. Please verify your details and try again.`);
                 return;
             }
 
             const result = await response.json();
+            console.log('Purchase result:', result);
 
             if (result.success) {
                 this.purchaseModal.style.display = 'none';
