@@ -192,12 +192,28 @@ class KuberAI {
             const response = await fetch('/analytics');
             const data = await response.json();
             
-            if (this.totalUsers) this.totalUsers.textContent = data.total_users;
-            if (this.totalTransactions) this.totalTransactions.textContent = data.total_transactions;
-            if (this.totalGoldSold) this.totalGoldSold.textContent = `${data.total_gold_sold_grams}g`;
-            if (this.totalRevenue) this.totalRevenue.textContent = `₹${data.total_revenue_inr.toLocaleString('en-IN', {maximumFractionDigits: 2})}`;
+            console.log('Analytics data received:', data);
+            
+            if (this.totalUsers) this.totalUsers.textContent = data.total_users || 0;
+            if (this.totalTransactions) this.totalTransactions.textContent = data.total_transactions || 0;
+            if (this.totalGoldSold) this.totalGoldSold.textContent = `${data.total_gold_sold_grams || 0}g`;
+            
+            // Fix revenue display with proper validation
+            const revenue = data.total_revenue_inr || 0;
+            if (this.totalRevenue) {
+                if (isNaN(revenue) || !isFinite(revenue)) {
+                    this.totalRevenue.textContent = '₹0';
+                } else {
+                    this.totalRevenue.textContent = `₹${revenue.toLocaleString('en-IN', {maximumFractionDigits: 2})}`;
+                }
+            }
         } catch (error) {
             console.error('Error fetching analytics:', error);
+            // Set default values on error
+            if (this.totalUsers) this.totalUsers.textContent = '0';
+            if (this.totalTransactions) this.totalTransactions.textContent = '0';
+            if (this.totalGoldSold) this.totalGoldSold.textContent = '0g';
+            if (this.totalRevenue) this.totalRevenue.textContent = '₹0';
         }
     }
 

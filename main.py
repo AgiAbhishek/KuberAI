@@ -419,29 +419,47 @@ def get_analytics():
         if transactions_collection is not None:
             # Get data from MongoDB
             all_transactions = list(transactions_collection.find({"status": "completed"}))
-            unique_users = set(transaction.get("user_id") for transaction in all_transactions)
+            unique_users = set(transaction.get("user_id") for transaction in all_transactions if transaction.get("user_id"))
             
             total_users = len(unique_users)
             total_transactions = len(all_transactions)
-            total_gold_sold = sum(transaction.get("gold_grams", 0) for transaction in all_transactions)
-            total_revenue_inr = sum(transaction.get("amount_paid_inr", 0) for transaction in all_transactions)
+            total_gold_sold = sum(float(transaction.get("gold_grams", 0)) for transaction in all_transactions)
+            total_revenue_inr = sum(float(transaction.get("amount_paid_inr", 0)) for transaction in all_transactions)
         else:
             # Fallback to in-memory database
             total_users = len(users_db)
-            total_transactions = sum(1 for user in users_db.values() if user.get("status") == "completed")
-            total_gold_sold = sum(user.get("gold_grams", 0) for user in users_db.values())
-            total_revenue_inr = sum(user.get("amount_paid_inr", 0) for user in users_db.values())
+            completed_transactions = [user for user in users_db.values() if user.get("status") == "completed"]
+            total_transactions = len(completed_transactions)
+            total_gold_sold = sum(float(user.get("gold_grams", 0)) for user in completed_transactions)
+            total_revenue_inr = sum(float(user.get("amount_paid_inr", 0)) for user in completed_transactions)
+        
+        # Ensure all values are valid numbers
+        total_users = max(0, int(total_users))
+        total_transactions = max(0, int(total_transactions))
+        total_gold_sold = max(0.0, float(total_gold_sold))
+        total_revenue_inr = max(0.0, float(total_revenue_inr))
+        
+        average_transaction = total_revenue_inr / max(total_transactions, 1) if total_transactions > 0 else 0.0
         
         return {
             "total_users": total_users,
             "total_transactions": total_transactions,
             "total_gold_sold_grams": round(total_gold_sold, 4),
             "total_revenue_inr": round(total_revenue_inr, 2),
-            "average_transaction_size_inr": round(total_revenue_inr / max(total_transactions, 1), 2),
+            "average_transaction_size_inr": round(average_transaction, 2),
             "database_status": "MongoDB" if transactions_collection is not None else "In-Memory"
         }
     except Exception as e:
-        return {"error": f"Analytics error: {str(e)}"}
+        print(f"Analytics error: {e}")
+        return {
+            "total_users": 0,
+            "total_transactions": 0,
+            "total_gold_sold_grams": 0.0,
+            "total_revenue_inr": 0.0,
+            "average_transaction_size_inr": 0.0,
+            "database_status": "Error",
+            "error": f"Analytics error: {str(e)}"
+        }
 
 # Test endpoints
 @app.get("/test/chat-examples")
