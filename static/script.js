@@ -188,30 +188,13 @@ class KuberAI {
     }
 
     updateGoldCalculation() {
-        const amountINR = parseFloat(this.amountInput.value) || 0;
+        const inputValue = this.amountInput.value.trim();
+        const amountINR = parseFloat(inputValue);
         
-        if (amountINR > 0) {
-            const gstRate = 0.03; // 3% GST
-            const gstAmount = amountINR * gstRate;
-            const totalAmount = amountINR + gstAmount;
-            // Calculate gold grams based on the INR amount entered (not total with GST)
-            const goldGrams = amountINR / this.goldPriceINR;
-            
-            if (this.goldAmountSpan) {
-                this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
-            }
-            
-            // Update GST and total amount displays
-            const gstElement = document.getElementById('gstAmount');
-            const totalElement = document.getElementById('totalAmount');
-            const priceElement = document.getElementById('pricePerGram');
-            
-            if (gstElement) gstElement.textContent = `₹${gstAmount.toFixed(2)}`;
-            if (totalElement) totalElement.textContent = `₹${totalAmount.toFixed(2)}`;
-            if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
-        } else {
-            // Reset displays when amount is 0
-            if (this.goldAmountSpan) this.goldAmountSpan.textContent = '0 grams';
+        // Check if input is valid number
+        if (isNaN(amountINR) || amountINR <= 0 || inputValue === '') {
+            // Reset displays for invalid input
+            if (this.goldAmountSpan) this.goldAmountSpan.textContent = '0 grams (₹0.00)';
             const gstElement = document.getElementById('gstAmount');
             const totalElement = document.getElementById('totalAmount');
             const priceElement = document.getElementById('pricePerGram');
@@ -219,7 +202,27 @@ class KuberAI {
             if (gstElement) gstElement.textContent = '₹0.00';
             if (totalElement) totalElement.textContent = '₹0.00';
             if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
+            return;
         }
+        
+        // Calculate even for amounts below minimum (for preview purposes)
+        const gstRate = 0.03; // 3% GST
+        const gstAmount = amountINR * gstRate;
+        const totalAmount = amountINR + gstAmount;
+        const goldGrams = amountINR / this.goldPriceINR;
+        
+        if (this.goldAmountSpan) {
+            this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
+        }
+        
+        // Update GST and total amount displays
+        const gstElement = document.getElementById('gstAmount');
+        const totalElement = document.getElementById('totalAmount');
+        const priceElement = document.getElementById('pricePerGram');
+        
+        if (gstElement) gstElement.textContent = `₹${gstAmount.toFixed(2)}`;
+        if (totalElement) totalElement.textContent = `₹${totalAmount.toFixed(2)}`;
+        if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
     }
 
     async sendMessage() {
