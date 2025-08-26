@@ -6,16 +6,15 @@ class KuberAI {
         this.currentSection = 'chat';
         this.initializeElements();
         this.bindEvents();
-        this.updateGoldPrice();
-        this.updateAnalytics();
         this.setupNavigation();
         
-        // Ensure gold calculation works immediately
-        setTimeout(() => {
+        // Initialize gold price and then update calculation
+        this.updateGoldPrice().then(() => {
             if (this.amountInput) {
                 this.updateGoldCalculation();
             }
-        }, 100);
+        });
+        this.updateAnalytics();
     }
 
     generateUserId() {
@@ -174,9 +173,17 @@ class KuberAI {
             const response = await fetch('/gold-price');
             const data = await response.json();
             this.goldPriceINR = data.price_per_gram_inr;
-            this.sidebarGoldPrice.textContent = `₹${this.goldPriceINR.toFixed(2)}/g`;
+            if (this.sidebarGoldPrice) {
+                this.sidebarGoldPrice.textContent = `₹${this.goldPriceINR.toFixed(2)}/g`;
+            }
+            // Update price display in modal if elements exist
+            const priceElement = document.getElementById('pricePerGram');
+            if (priceElement) {
+                priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
+            }
         } catch (error) {
             console.error('Error fetching gold price:', error);
+            this.goldPriceINR = 5469.25; // Ensure fallback price is set
         }
     }
 
@@ -195,13 +202,23 @@ class KuberAI {
     }
 
     updateGoldCalculation() {
+        // Ensure elements exist
+        if (!this.amountInput) {
+            console.log('Amount input not found');
+            return;
+        }
+        
         const inputValue = this.amountInput.value.trim();
         const amountINR = parseFloat(inputValue);
         
-        // Ensure goldPriceINR is valid
-        if (!this.goldPriceINR || this.goldPriceINR <= 0) {
+        // Ensure goldPriceINR is valid - force fallback if needed
+        if (!this.goldPriceINR || this.goldPriceINR <= 0 || isNaN(this.goldPriceINR)) {
+            console.log('Setting fallback gold price');
             this.goldPriceINR = 5469.25; // Fallback price
         }
+        
+        // Debug log
+        console.log('Gold calculation:', { inputValue, amountINR, goldPriceINR: this.goldPriceINR });
         
         // Check if input is valid number
         if (isNaN(amountINR) || amountINR <= 0 || inputValue === '') {
@@ -223,12 +240,16 @@ class KuberAI {
         const totalAmount = amountINR + gstAmount;
         const goldGrams = amountINR / this.goldPriceINR;
         
+        // Debug log calculation results
+        console.log('Calculation results:', { gstAmount, totalAmount, goldGrams });
+        
         // Ensure calculations are valid numbers
-        if (isNaN(goldGrams) || !isFinite(goldGrams)) {
-            console.error('Invalid gold calculation:', { amountINR, goldPriceINR: this.goldPriceINR, goldGrams });
+        if (isNaN(goldGrams) || !isFinite(goldGrams) || isNaN(gstAmount) || isNaN(totalAmount)) {
+            console.error('Invalid gold calculation:', { amountINR, goldPriceINR: this.goldPriceINR, goldGrams, gstAmount, totalAmount });
             return;
         }
         
+        // Update displays
         if (this.goldAmountSpan) {
             this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
         }
@@ -241,6 +262,8 @@ class KuberAI {
         if (gstElement) gstElement.textContent = `₹${gstAmount.toFixed(2)}`;
         if (totalElement) totalElement.textContent = `₹${totalAmount.toFixed(2)}`;
         if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
+        
+        console.log('Display updated successfully');
     }
 
     async sendMessage() {
@@ -353,7 +376,10 @@ class KuberAI {
 
     showPurchaseModal() {
         this.purchaseModal.style.display = 'block';
-        this.updateGoldCalculation();
+        // Ensure gold price is current and calculation works
+        setTimeout(() => {
+            this.updateGoldCalculation();
+        }, 100);
     }
 
     async processPurchase() {
