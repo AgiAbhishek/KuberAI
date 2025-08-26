@@ -27,22 +27,29 @@ groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 # Initialize MongoDB client
 try:
     mongodb_url = os.getenv("MONGODB_URL")
+    print(f"🔍 MongoDB URL found: {'Yes' if mongodb_url else 'No'}")
     if mongodb_url:
-        mongo_client = MongoClient(mongodb_url)
+        print(f"🔗 Connecting to MongoDB...")
+        mongo_client = MongoClient(mongodb_url, serverSelectionTimeoutMS=5000)
         # Test the connection
-        mongo_client.admin.command('ismaster')
+        result = mongo_client.admin.command('ismaster')
+        print(f"🏓 MongoDB ping successful: {result.get('ok', False)}")
         db = mongo_client.KuberAI
         users_collection = db.users
         transactions_collection = db.transactions
         print("✅ MongoDB connected successfully")
+        print(f"📚 Database: {db.name}")
+        print(f"👥 Users collection: {users_collection.name}")
+        print(f"💰 Transactions collection: {transactions_collection.name}")
     else:
         print("❌ MongoDB URL not found in environment variables")
         mongo_client = None
         db = None
         users_collection = None
         transactions_collection = None
-except ConnectionFailure as e:
+except Exception as e:
     print(f"❌ MongoDB connection failed: {e}")
+    print(f"🔧 Error type: {type(e).__name__}")
     mongo_client = None
     db = None
     users_collection = None
@@ -304,6 +311,7 @@ def purchase_gold(request: PurchaseRequest):
             if mongo_client is not None and users_collection is not None and transactions_collection is not None:
                 # Test MongoDB connection
                 mongo_client.admin.command('ismaster')
+                print(f"🔄 Attempting to store transaction {transaction_id} in MongoDB...")
                 
                 # Store user info
                 user_result = users_collection.update_one(
@@ -316,9 +324,11 @@ def purchase_gold(request: PurchaseRequest):
                     }},
                     upsert=True
                 )
+                print(f"👤 User record operation completed: {user_result.modified_count or user_result.upserted_id}")
                 
                 # Store transaction
                 transaction_result = transactions_collection.insert_one(user_record.copy())
+                print(f"💾 Transaction insert result: {transaction_result.inserted_id}")
                 
                 if transaction_result.inserted_id:
                     mongodb_success = True
@@ -328,10 +338,15 @@ def purchase_gold(request: PurchaseRequest):
                     raise Exception("Failed to insert transaction record")
                     
             else:
+                print("❌ MongoDB components not available:")
+                print(f"   - mongo_client: {mongo_client is not None}")
+                print(f"   - users_collection: {users_collection is not None}")
+                print(f"   - transactions_collection: {transactions_collection is not None}")
                 raise Exception("MongoDB client or collections not available")
                 
         except Exception as e:
             print(f"❌ MongoDB storage failed: {e}")
+            print(f"📋 User record data: {user_record}")
             print(f"⚠️ Falling back to in-memory storage for transaction {transaction_id}")
             # Fallback to in-memory storage
             users_db[request.user_id] = user_record
