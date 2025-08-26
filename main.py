@@ -11,17 +11,44 @@ import uuid
 import os
 from datetime import datetime
 from groq import Groq
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+import logging
 
 app = FastAPI(title="Kuber AI - Gold Investment Assistant", description="Professional AI-powered gold investment chatbot")
 
 # Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# Initialize MongoDB client
+try:
+    mongodb_url = os.getenv("MONGODB_URL")
+    if mongodb_url:
+        mongo_client = MongoClient(mongodb_url)
+        # Test the connection
+        mongo_client.admin.command('ismaster')
+        db = mongo_client.KuberAI
+        users_collection = db.users
+        transactions_collection = db.transactions
+        print("✅ MongoDB connected successfully")
+    else:
+        print("❌ MongoDB URL not found in environment variables")
+        mongo_client = None
+        db = None
+        users_collection = None
+        transactions_collection = None
+except ConnectionFailure as e:
+    print(f"❌ MongoDB connection failed: {e}")
+    mongo_client = None
+    db = None
+    users_collection = None
+    transactions_collection = None
+
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# In-memory database for demonstration
+# Fallback in-memory database for demonstration
 users_db = {}
 gold_price_per_gram_usd = 65.50  # Hardcoded gold price in USD
 usd_to_inr = 83.50  # Current USD to INR conversion rate
@@ -123,19 +150,18 @@ Guidelines:
 3. Use Indian Rupees (₹) for pricing
 4. Provide relevant market insights when asked
 5. DO NOT give investment advice, only factual information
-6. End with the specific nudge template
+6. ONLY add the nudge template if the user is asking about investment, buying, or purchasing
 
-Nudge template to use:
-"If you'd like, I can help you purchase digital gold now and record it to your account."
+Nudge template to use ONLY for purchase-related queries:
+"🏆 Ready to build your golden portfolio with Kuber AI? Start Investment"
 
 Examples:
 - If asked about prices: "Current gold price is ₹{gold_price_per_gram_inr:.2f} per gram. Gold prices fluctuate based on global market conditions and economic factors."
 - If asked about benefits: "Gold historically serves as a hedge against inflation and currency devaluation. Digital gold offers the convenience of fractional ownership without storage concerns."
 - If asked about digital gold: "Digital gold allows you to buy, sell and store gold electronically with 24/7 liquidity and no storage costs."
+- If asked about buying/investing: Add the nudge template at the end.
 
-Always end with: "If you'd like, I can help you purchase digital gold now and record it to your account."
-
-Answer the user's question specifically, don't give generic responses."""
+Answer the user's question specifically, don't give generic responses. Only add the purchase nudge if they express interest in buying or investing."""
         else:
             system_prompt = """You are Kuber AI, a helpful and knowledgeable assistant. You can answer questions on various topics while being friendly and informative. 
 
@@ -143,7 +169,7 @@ Guidelines:
 1. Answer the user's question directly and helpfully
 2. Be concise and informative
 3. Be friendly and professional
-4. If the conversation naturally relates to investments or finance, you can mention your specialty in gold investment
+4. Do not mention gold investment unless the question is specifically about investments or finance
 
 Do not force gold investment topics if the user is asking about something completely unrelated."""
 
@@ -214,11 +240,15 @@ def chat_with_bot(request: ChatRequest):
     # Generate AI response for both gold-related and general queries
     response = generate_ai_response(request.message, is_gold_related)
     
+    # Check if user is showing purchase intent (not just asking general gold questions)
+    purchase_intent_keywords = ['buy', 'purchase', 'invest', 'want to', 'how to buy', 'start investing']
+    has_purchase_intent = any(keyword in request.message.lower() for keyword in purchase_intent_keywords)
+    
     return ChatResponse(
         response=response,
         is_gold_related=is_gold_related,
         user_id=user_id,
-        purchase_encouraged=is_gold_related
+        purchase_encouraged=is_gold_related and has_purchase_intent
     )
 
 @app.post("/purchase", response_model=PurchaseResponse)
@@ -254,8 +284,32 @@ def purchase_gold(request: PurchaseRequest):
             "status": "completed"
         }
         
-        # Store in database
-        users_db[request.user_id] = user_record
+        # Store in MongoDB if available, otherwise use in-memory database
+        try:
+            if users_collection is not None and transactions_collection is not None:
+                # Store user info
+                users_collection.update_one(
+                    {"user_id": request.user_id},
+                    {"$set": {
+                        "user_id": request.user_id,
+                        "name": request.user_name,
+                        "email": request.email,
+                        "last_updated": datetime.now().isoformat()
+                    }},
+                    upsert=True
+                )
+                
+                # Store transaction
+                transactions_collection.insert_one(user_record)
+                print(f"✅ Transaction {transaction_id} stored in MongoDB")
+            else:
+                # Fallback to in-memory storage
+                users_db[request.user_id] = user_record
+                print(f"⚠️ Transaction {transaction_id} stored in memory (MongoDB not available)")
+        except Exception as e:
+            print(f"❌ Database error: {e}")
+            # Fallback to in-memory storage
+            users_db[request.user_id] = user_record
         
         return PurchaseResponse(
             success=True,
@@ -270,14 +324,42 @@ def purchase_gold(request: PurchaseRequest):
 
 @app.get("/users/{user_id}")
 def get_user_record(user_id: str):
-    if user_id not in users_db:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return users_db[user_id]
+    try:
+        if transactions_collection is not None:
+            user_transactions = list(transactions_collection.find({"user_id": user_id}, {"_id": 0}))
+            if not user_transactions:
+                raise HTTPException(status_code=404, detail="User not found")
+            return {"user_id": user_id, "transactions": user_transactions}
+        else:
+            # Fallback to in-memory database
+            if user_id not in users_db:
+                raise HTTPException(status_code=404, detail="User not found")
+            return users_db[user_id]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.get("/users")
 def get_all_users():
-    return {"total_users": len(users_db), "users": list(users_db.values())}
+    try:
+        if transactions_collection is not None:
+            all_transactions = list(transactions_collection.find({}, {"_id": 0}))
+            unique_users = {}
+            for transaction in all_transactions:
+                user_id = transaction.get("user_id")
+                if user_id not in unique_users:
+                    unique_users[user_id] = []
+                unique_users[user_id].append(transaction)
+            
+            return {
+                "total_users": len(unique_users), 
+                "total_transactions": len(all_transactions),
+                "users": unique_users
+            }
+        else:
+            # Fallback to in-memory database
+            return {"total_users": len(users_db), "users": list(users_db.values())}
+    except Exception as e:
+        return {"error": f"Database error: {str(e)}", "total_users": len(users_db), "users": list(users_db.values())}
 
 @app.get("/gold-price")
 def get_gold_price():
@@ -291,20 +373,36 @@ def get_gold_price():
 
 @app.get("/analytics")
 def get_analytics():
-    total_users = len(users_db)
-    total_transactions = sum(1 for user in users_db.values() if user.get("status") == "completed")
-    total_gold_sold = sum(user.get("gold_grams", 0) for user in users_db.values())
-    total_revenue_usd = sum(user.get("amount_paid_usd", 0) for user in users_db.values())
-    total_revenue_inr = sum(user.get("amount_paid_inr", 0) for user in users_db.values())
-    
-    return {
-        "total_users": total_users,
-        "total_transactions": total_transactions,
-        "total_gold_sold_grams": round(total_gold_sold, 4),
-        "total_revenue_usd": round(total_revenue_usd, 2),
-        "total_revenue_inr": round(total_revenue_inr, 2),
-        "average_transaction_size": round(total_revenue_usd / max(total_transactions, 1), 2)
-    }
+    try:
+        if transactions_collection is not None:
+            # Get data from MongoDB
+            all_transactions = list(transactions_collection.find({"status": "completed"}))
+            unique_users = set(transaction.get("user_id") for transaction in all_transactions)
+            
+            total_users = len(unique_users)
+            total_transactions = len(all_transactions)
+            total_gold_sold = sum(transaction.get("gold_grams", 0) for transaction in all_transactions)
+            total_revenue_usd = sum(transaction.get("amount_paid_usd", 0) for transaction in all_transactions)
+            total_revenue_inr = sum(transaction.get("amount_paid_inr", 0) for transaction in all_transactions)
+        else:
+            # Fallback to in-memory database
+            total_users = len(users_db)
+            total_transactions = sum(1 for user in users_db.values() if user.get("status") == "completed")
+            total_gold_sold = sum(user.get("gold_grams", 0) for user in users_db.values())
+            total_revenue_usd = sum(user.get("amount_paid_usd", 0) for user in users_db.values())
+            total_revenue_inr = sum(user.get("amount_paid_inr", 0) for user in users_db.values())
+        
+        return {
+            "total_users": total_users,
+            "total_transactions": total_transactions,
+            "total_gold_sold_grams": round(total_gold_sold, 4),
+            "total_revenue_usd": round(total_revenue_usd, 2),
+            "total_revenue_inr": round(total_revenue_inr, 2),
+            "average_transaction_size": round(total_revenue_usd / max(total_transactions, 1), 2),
+            "database_status": "MongoDB" if transactions_collection is not None else "In-Memory"
+        }
+    except Exception as e:
+        return {"error": f"Analytics error: {str(e)}"}
 
 # Test endpoints
 @app.get("/test/chat-examples")
