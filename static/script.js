@@ -208,62 +208,59 @@ class KuberAI {
             return;
         }
         
-        const inputValue = this.amountInput.value.trim();
-        const amountINR = parseFloat(inputValue);
-        
-        // Ensure goldPriceINR is valid - force fallback if needed
+        // Force initialization of gold price if not set
         if (!this.goldPriceINR || this.goldPriceINR <= 0 || isNaN(this.goldPriceINR)) {
-            console.log('Setting fallback gold price');
-            this.goldPriceINR = 5469.25; // Fallback price
+            console.log('Initializing gold price');
+            this.goldPriceINR = 5469.25;
+            this.updateGoldPrice(); // Try to get latest price
         }
         
-        // Debug log
-        console.log('Gold calculation:', { inputValue, amountINR, goldPriceINR: this.goldPriceINR });
+        const inputValue = this.amountInput.value.trim();
         
-        // Check if input is valid number
-        if (isNaN(amountINR) || amountINR <= 0 || inputValue === '') {
-            // Reset displays for invalid input
+        // Get calculation elements
+        const gstElement = document.getElementById('gstAmount');
+        const totalElement = document.getElementById('totalAmount');
+        const priceElement = document.getElementById('pricePerGram');
+        
+        // Always update price per gram display
+        if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
+        
+        // Handle empty or invalid input
+        if (inputValue === '' || isNaN(inputValue)) {
             if (this.goldAmountSpan) this.goldAmountSpan.textContent = '0 grams (₹0.00)';
-            const gstElement = document.getElementById('gstAmount');
-            const totalElement = document.getElementById('totalAmount');
-            const priceElement = document.getElementById('pricePerGram');
-            
             if (gstElement) gstElement.textContent = '₹0.00';
             if (totalElement) totalElement.textContent = '₹0.00';
-            if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
             return;
         }
         
-        // Calculate even for amounts below minimum (for preview purposes)
+        const amountINR = parseFloat(inputValue);
+        
+        // Handle zero or negative amounts
+        if (amountINR <= 0) {
+            if (this.goldAmountSpan) this.goldAmountSpan.textContent = '0 grams (₹0.00)';
+            if (gstElement) gstElement.textContent = '₹0.00';
+            if (totalElement) totalElement.textContent = '₹0.00';
+            return;
+        }
+        
+        // Perform calculations
         const gstRate = 0.03; // 3% GST
         const gstAmount = amountINR * gstRate;
         const totalAmount = amountINR + gstAmount;
         const goldGrams = amountINR / this.goldPriceINR;
         
-        // Debug log calculation results
-        console.log('Calculation results:', { gstAmount, totalAmount, goldGrams });
-        
-        // Ensure calculations are valid numbers
-        if (isNaN(goldGrams) || !isFinite(goldGrams) || isNaN(gstAmount) || isNaN(totalAmount)) {
-            console.error('Invalid gold calculation:', { amountINR, goldPriceINR: this.goldPriceINR, goldGrams, gstAmount, totalAmount });
+        // Validate calculations
+        if (isNaN(goldGrams) || !isFinite(goldGrams)) {
+            console.error('Invalid calculation results');
             return;
         }
         
-        // Update displays
+        // Update displays with valid data
         if (this.goldAmountSpan) {
             this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
         }
-        
-        // Update GST and total amount displays
-        const gstElement = document.getElementById('gstAmount');
-        const totalElement = document.getElementById('totalAmount');
-        const priceElement = document.getElementById('pricePerGram');
-        
         if (gstElement) gstElement.textContent = `₹${gstAmount.toFixed(2)}`;
         if (totalElement) totalElement.textContent = `₹${totalAmount.toFixed(2)}`;
-        if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
-        
-        console.log('Display updated successfully');
     }
 
     async sendMessage() {
@@ -384,14 +381,40 @@ class KuberAI {
 
     async processPurchase() {
         const formData = new FormData(this.purchaseForm);
-        const amountINR = parseFloat(formData.get('amount'));
+        const userName = formData.get('userName');
+        const userEmail = formData.get('userEmail');
+        const amount = formData.get('amount');
+        const amountINR = parseFloat(amount);
+        
+        // Validate form data
+        if (!userName || userName.trim() === '') {
+            alert('Please enter your full name');
+            return;
+        }
+        
+        if (!userEmail || userEmail.trim() === '') {
+            alert('Please enter your email address');
+            return;
+        }
+        
+        if (!amount || isNaN(amountINR) || amountINR <= 0) {
+            alert('Please enter a valid investment amount');
+            return;
+        }
+        
+        if (amountINR < 830) {
+            alert('Minimum investment amount is ₹830');
+            return;
+        }
         
         const purchaseData = {
             user_id: this.userId,
-            user_name: formData.get('userName'),
-            email: formData.get('userEmail'),
+            user_name: userName.trim(),
+            email: userEmail.trim(),
             amount_inr: amountINR
         };
+
+        console.log('Sending purchase data:', purchaseData);
 
         try {
             const response = await fetch('/purchase', {
@@ -402,6 +425,13 @@ class KuberAI {
                 body: JSON.stringify(purchaseData)
             });
 
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Purchase failed:', errorData);
+                alert(`Investment processing failed: ${errorData.detail || 'Unknown error'}`);
+                return;
+            }
+
             const result = await response.json();
 
             if (result.success) {
@@ -409,8 +439,11 @@ class KuberAI {
                 this.showSuccessModal(result);
                 this.addMessage(`🎉 ${result.message}`, 'bot');
                 this.updateAnalytics(); // Refresh analytics after purchase
+                // Reset form
+                this.purchaseForm.reset();
+                this.updateGoldCalculation();
             } else {
-                alert('Investment processing failed. Please verify your details and try again.');
+                alert(`Investment processing failed: ${result.message || 'Unknown error'}`);
             }
 
         } catch (error) {
