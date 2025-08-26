@@ -3,8 +3,6 @@ class KuberAI {
     constructor() {
         this.userId = this.generateUserId();
         this.goldPriceINR = 5469.25; // Will be updated from API
-        this.goldPriceUSD = 65.50;
-        this.usdToInr = 83.50;
         this.currentSection = 'chat';
         this.initializeElements();
         this.bindEvents();
@@ -169,8 +167,6 @@ class KuberAI {
             const response = await fetch('/gold-price');
             const data = await response.json();
             this.goldPriceINR = data.price_per_gram_inr;
-            this.goldPriceUSD = data.price_per_gram_usd;
-            this.usdToInr = data.usd_to_inr_rate;
             this.sidebarGoldPrice.textContent = `₹${this.goldPriceINR.toFixed(2)}/g`;
         } catch (error) {
             console.error('Error fetching gold price:', error);
@@ -185,10 +181,7 @@ class KuberAI {
             if (this.totalUsers) this.totalUsers.textContent = data.total_users;
             if (this.totalTransactions) this.totalTransactions.textContent = data.total_transactions;
             if (this.totalGoldSold) this.totalGoldSold.textContent = `${data.total_gold_sold_grams}g`;
-            
-            // Convert USD to INR for revenue display
-            const revenueINR = data.total_revenue_usd * this.usdToInr;
-            if (this.totalRevenue) this.totalRevenue.textContent = `₹${revenueINR.toLocaleString('en-IN', {maximumFractionDigits: 2})}`;
+            if (this.totalRevenue) this.totalRevenue.textContent = `₹${data.total_revenue_inr.toLocaleString('en-IN', {maximumFractionDigits: 2})}`;
         } catch (error) {
             console.error('Error fetching analytics:', error);
         }
@@ -345,13 +338,11 @@ class KuberAI {
     async processPurchase() {
         const formData = new FormData(this.purchaseForm);
         const amountINR = parseFloat(formData.get('amount'));
-        const amountUSD = amountINR / this.usdToInr; // Convert INR to USD for backend compatibility
         
         const purchaseData = {
             user_id: this.userId,
             user_name: formData.get('userName'),
             email: formData.get('userEmail'),
-            amount_usd: amountUSD,
             amount_inr: amountINR
         };
 

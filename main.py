@@ -61,9 +61,7 @@ templates = Jinja2Templates(directory="templates")
 
 # Fallback in-memory database for demonstration
 users_db = {}
-gold_price_per_gram_usd = 65.50  # Hardcoded gold price in USD
-usd_to_inr = 83.50  # Current USD to INR conversion rate
-gold_price_per_gram_inr = gold_price_per_gram_usd * usd_to_inr  # Gold price in INR
+gold_price_per_gram_inr = 5469.25  # Hardcoded gold price in INR
 
 # Request/Response models
 class ChatRequest(BaseModel):
@@ -78,8 +76,7 @@ class ChatResponse(BaseModel):
 
 class PurchaseRequest(BaseModel):
     user_id: str
-    amount_usd: float
-    amount_inr: float = None
+    amount_inr: float
     user_name: str
     email: str
 
@@ -266,8 +263,7 @@ def chat_with_bot(request: ChatRequest):
 @app.post("/purchase", response_model=PurchaseResponse)
 def purchase_gold(request: PurchaseRequest):
     try:
-        # Use INR amount if provided, otherwise convert from USD
-        amount_inr = request.amount_inr if request.amount_inr else request.amount_usd * usd_to_inr
+        amount_inr = request.amount_inr
         
         # Calculate GST (3%)
         gst_rate = 0.03
@@ -294,7 +290,6 @@ def purchase_gold(request: PurchaseRequest):
             "email": request.email,
             "transaction_id": transaction_id,
             "gold_grams": round(gold_grams, 4),
-            "amount_paid_usd": request.amount_usd,
             "amount_paid_inr": round(amount_inr, 2),
             "gst_amount": round(gst_amount, 2),
             "total_amount_with_gst": round(total_amount_with_gst, 2),
@@ -361,7 +356,7 @@ def purchase_gold(request: PurchaseRequest):
             success=True,
             transaction_id=transaction_id,
             gold_grams=round(gold_grams, 4),
-            total_cost=request.amount_usd,
+            total_cost=round(total_amount_with_gst, 2),
             message=success_message
         )
         
@@ -414,10 +409,8 @@ def get_all_users():
 def get_gold_price():
     return {
         "price_per_gram_inr": round(gold_price_per_gram_inr, 2),
-        "price_per_gram_usd": gold_price_per_gram_usd,
-        "usd_to_inr_rate": usd_to_inr,
         "last_updated": datetime.now().isoformat(),
-        "primary_currency": "INR"
+        "currency": "INR"
     }
 
 @app.get("/analytics")
@@ -431,23 +424,20 @@ def get_analytics():
             total_users = len(unique_users)
             total_transactions = len(all_transactions)
             total_gold_sold = sum(transaction.get("gold_grams", 0) for transaction in all_transactions)
-            total_revenue_usd = sum(transaction.get("amount_paid_usd", 0) for transaction in all_transactions)
             total_revenue_inr = sum(transaction.get("amount_paid_inr", 0) for transaction in all_transactions)
         else:
             # Fallback to in-memory database
             total_users = len(users_db)
             total_transactions = sum(1 for user in users_db.values() if user.get("status") == "completed")
             total_gold_sold = sum(user.get("gold_grams", 0) for user in users_db.values())
-            total_revenue_usd = sum(user.get("amount_paid_usd", 0) for user in users_db.values())
             total_revenue_inr = sum(user.get("amount_paid_inr", 0) for user in users_db.values())
         
         return {
             "total_users": total_users,
             "total_transactions": total_transactions,
             "total_gold_sold_grams": round(total_gold_sold, 4),
-            "total_revenue_usd": round(total_revenue_usd, 2),
             "total_revenue_inr": round(total_revenue_inr, 2),
-            "average_transaction_size": round(total_revenue_usd / max(total_transactions, 1), 2),
+            "average_transaction_size_inr": round(total_revenue_inr / max(total_transactions, 1), 2),
             "database_status": "MongoDB" if transactions_collection is not None else "In-Memory"
         }
     except Exception as e:
