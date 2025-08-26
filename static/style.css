@@ -563,6 +563,8 @@ body {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
     animation: modalSlideIn 0.3s ease-out;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 @keyframes modalSlideIn {
@@ -610,6 +612,9 @@ body {
 
 .purchase-form {
     padding: 2rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
 }
 
 .form-group {
@@ -682,6 +687,10 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    margin-top: 1.5rem;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
 }
 
 .purchase-btn:hover {
@@ -818,16 +827,20 @@ body {
 
     .modal-content {
         width: 98%;
-        margin: 1% auto;
-        max-height: 98vh;
+        margin: 2% auto;
+        max-height: 96vh;
+        min-height: 400px;
     }
 
     .purchase-form {
         padding: 1.5rem;
+        overflow-y: auto;
+        max-height: calc(96vh - 120px);
     }
 
     .modal-header {
         padding: 1.5rem;
+        flex-shrink: 0;
     }
 
     .modal-content.success {
