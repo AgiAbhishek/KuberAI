@@ -202,20 +202,24 @@ class KuberAI {
     }
 
     updateGoldCalculation() {
+        console.log('updateGoldCalculation called');
+        
         // Ensure elements exist
         if (!this.amountInput) {
             console.log('Amount input not found');
             return;
         }
         
-        // Force initialization of gold price if not set
+        // Always ensure we have a valid gold price
         if (!this.goldPriceINR || this.goldPriceINR <= 0 || isNaN(this.goldPriceINR)) {
-            console.log('Initializing gold price');
-            this.goldPriceINR = 5469.25;
-            this.updateGoldPrice(); // Try to get latest price
+            console.log('Setting default gold price');
+            this.goldPriceINR = 5469.25; // Hardcoded fallback price
         }
         
+        console.log('Current gold price INR:', this.goldPriceINR);
+        
         const inputValue = this.amountInput.value.trim();
+        console.log('Input value:', inputValue);
         
         // Get calculation elements
         const gstElement = document.getElementById('gstAmount');
@@ -223,10 +227,14 @@ class KuberAI {
         const priceElement = document.getElementById('pricePerGram');
         
         // Always update price per gram display
-        if (priceElement) priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
+        if (priceElement) {
+            priceElement.textContent = `₹${this.goldPriceINR.toFixed(2)}`;
+            console.log('Updated price per gram display');
+        }
         
         // Handle empty or invalid input
-        if (inputValue === '' || isNaN(inputValue)) {
+        if (inputValue === '' || isNaN(parseFloat(inputValue))) {
+            console.log('Empty or invalid input, resetting displays');
             if (this.goldAmountSpan) this.goldAmountSpan.textContent = '0 grams (₹0.00)';
             if (gstElement) gstElement.textContent = '₹0.00';
             if (totalElement) totalElement.textContent = '₹0.00';
@@ -234,9 +242,11 @@ class KuberAI {
         }
         
         const amountINR = parseFloat(inputValue);
+        console.log('Parsed amount INR:', amountINR);
         
         // Handle zero or negative amounts
         if (amountINR <= 0) {
+            console.log('Zero or negative amount, resetting displays');
             if (this.goldAmountSpan) this.goldAmountSpan.textContent = '0 grams (₹0.00)';
             if (gstElement) gstElement.textContent = '₹0.00';
             if (totalElement) totalElement.textContent = '₹0.00';
@@ -249,18 +259,36 @@ class KuberAI {
         const totalAmount = amountINR + gstAmount;
         const goldGrams = amountINR / this.goldPriceINR;
         
-        // Validate calculations
-        if (isNaN(goldGrams) || !isFinite(goldGrams)) {
-            console.error('Invalid calculation results');
+        console.log('Calculations:', {
+            amountINR,
+            goldPriceINR: this.goldPriceINR,
+            goldGrams,
+            gstAmount,
+            totalAmount
+        });
+        
+        // Validate calculations before displaying
+        if (isNaN(goldGrams) || !isFinite(goldGrams) || isNaN(gstAmount) || isNaN(totalAmount)) {
+            console.error('Invalid calculation results:', { goldGrams, gstAmount, totalAmount });
+            if (this.goldAmountSpan) this.goldAmountSpan.textContent = 'Calculation Error';
+            if (gstElement) gstElement.textContent = '₹0.00';
+            if (totalElement) totalElement.textContent = '₹0.00';
             return;
         }
         
         // Update displays with valid data
         if (this.goldAmountSpan) {
             this.goldAmountSpan.textContent = `${goldGrams.toFixed(4)} grams (₹${amountINR.toFixed(2)})`;
+            console.log('Updated gold amount span');
         }
-        if (gstElement) gstElement.textContent = `₹${gstAmount.toFixed(2)}`;
-        if (totalElement) totalElement.textContent = `₹${totalAmount.toFixed(2)}`;
+        if (gstElement) {
+            gstElement.textContent = `₹${gstAmount.toFixed(2)}`;
+            console.log('Updated GST element');
+        }
+        if (totalElement) {
+            totalElement.textContent = `₹${totalAmount.toFixed(2)}`;
+            console.log('Updated total element');
+        }
     }
 
     async sendMessage() {
@@ -373,7 +401,18 @@ class KuberAI {
 
     showPurchaseModal() {
         this.purchaseModal.style.display = 'block';
-        // Ensure gold price is current and calculation works
+        
+        // Force initialize gold price before showing modal
+        if (!this.goldPriceINR || this.goldPriceINR <= 0 || isNaN(this.goldPriceINR)) {
+            this.goldPriceINR = 5469.25;
+            console.log('Initialized gold price for modal:', this.goldPriceINR);
+        }
+        
+        // Ensure all elements are properly initialized
+        this.setupPurchaseModal();
+        
+        // Update calculation immediately and after a delay
+        this.updateGoldCalculation();
         setTimeout(() => {
             this.updateGoldCalculation();
         }, 100);
